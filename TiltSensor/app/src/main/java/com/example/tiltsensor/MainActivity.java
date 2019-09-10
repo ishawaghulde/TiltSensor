@@ -11,149 +11,65 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.Surface;
 import android.view.WindowManager;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
 
-    private static final String TAG = "MainActivity";
-
-    private TextView tv, tv1, tv2;
     private SensorManager sensorManager;
-    private Sensor accelerometer;
-    private Sensor magnetometer;
-    private float[] mGravity;
-    private float[] mGeomagnetic;
-
+    private Sensor sensor;
+    private TextView textView;
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Keep the screen on
-        // https://developer.android.com/training/scheduling/wakelock.html#screen
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-
-        // Grab the layout TextView
-        tv =  findViewById(R.id.tv_tilt);
-        tv1 =  findViewById(R.id.tv_tilt1);
-        tv2 =  findViewById(R.id.tv_tilt2);
-
-        // Setup the sensors
+        //declaring Sensor Manager and sensor type
         sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        if (accelerometer == null) {
-            Log.d(TAG, "accelerometer is null");
-        }
-        magnetometer = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
-        if (magnetometer == null) {
-            Log.d(TAG, "magnetometer is null");
-        }
+        sensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
-        // Detect the window position
-        switch (getWindowManager().getDefaultDisplay().getRotation()) {
-            case Surface.ROTATION_0:
-                Log.d(TAG, "Rotation 0");
-                break;
-            case Surface.ROTATION_90:
-                Log.d(TAG, "Rotation 90");
-                break;
-            case Surface.ROTATION_180:
-                Log.d(TAG, "Rotation 180");
-                break;
-            case Surface.ROTATION_270:
-                Log.d(TAG, "Rotation 270");
-                break;
-            default:
-                Log.w(TAG, "Rotation unknown");
-                break;
+        //locate views
+        textView =  findViewById(R.id.txt);
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor arg0, int arg1) {
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        float x = event.values[0];
+        float y = event.values[1];
+        if (Math.abs(x) > Math.abs(y)) {
+            if (x < 0) {
+                textView.setText("You tilt the device right");
+            }
+            if (x > 0) {
+                textView.setText("You tilt the device left");
+            }
+        } else {
+            if (y < 0) {
+                textView.setText("You tilt the device up");
+            }
+            if (y > 0) {
+                textView.setText("You tilt the device down");
+            }
+        }
+        if (x > (-2) && x < (2) && y > (-2) && y < (2)) {
+            textView.setText("Not tilt device");
         }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI);
-        sensorManager.registerListener(this, magnetometer, SensorManager.SENSOR_DELAY_UI);
+        sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        //unregister Sensor listener
         sensorManager.unregisterListener(this);
     }
-
-    /**
-     * Convert degrees to absolute tilt value between 0-100
-     */
-    private int degreesToPower(int degrees) {
-        // Tilted back towards user more than -90 deg
-        if (degrees < -90) {
-            degrees = -90;
-        }
-        // Tilted forward past 0 deg
-        else if (degrees > 0) {
-            degrees = 0;
-        }
-        // Normalize into a positive value
-        degrees *= -1;
-        // Invert from 90-0 to 0-90
-        degrees = 90 - degrees;
-        // Convert to scale of 0-100
-        float degFloat = degrees / 90f * 100f;
-        return (int) degFloat;
-    }
-
-    @Override
-    public void onSensorChanged(SensorEvent event) {
-        //Log.d(TAG, "onSensorChanged()");
-        if (event.values == null) {
-            Log.w(TAG, "event.values is null");
-            return;
-        }
-        int sensorType = event.sensor.getType();
-        switch (sensorType) {
-            case Sensor.TYPE_ACCELEROMETER:
-                mGravity = event.values;
-                break;
-            case Sensor.TYPE_MAGNETIC_FIELD:
-                mGeomagnetic = event.values;
-                break;
-            default:
-                Log.w(TAG, "Unknown sensor type " + sensorType);
-                return;
-        }
-        if (mGravity == null) {
-            Log.w(TAG, "mGravity is null");
-            return;
-        }
-        if (mGeomagnetic == null) {
-            Log.w(TAG, "mGeomagnetic is null");
-            return;
-        }
-        float R[] = new float[9];
-        if (! SensorManager.getRotationMatrix(R, null, mGravity, mGeomagnetic)) {
-            Log.w(TAG, "getRotationMatrix() failed");
-            return;
-        }
-
-        float orientation[] = new float[9];
-        SensorManager.getOrientation(R, orientation);
-        // Orientation contains: azimuth, pitch and roll - we'll use roll
-        float roll = orientation[2];
-        int rollDeg = (int) Math.round(Math.toDegrees(roll));
-        int power = degreesToPower(rollDeg);
-        float azimuth = orientation[0];
-        int azimuthDeg = (int) Math.round(Math.toDegrees(azimuth));
-        int power1 = degreesToPower(azimuthDeg);
-        float pitch = orientation[1];
-        int pitchDeg = (int) Math.round(Math.toDegrees(pitch));
-        int power2 = degreesToPower(pitchDeg);
-        //Log.d(TAG, "deg=" + rollDeg + " power=" + power);
-        tv.setText(String.valueOf(power));
-        tv1.setText(String.valueOf(power1));
-        tv2.setText(String.valueOf(power2));
-    }
-
-    @Override
-    public void onAccuracyChanged(Sensor sensor, int accuracy) {}
 }
